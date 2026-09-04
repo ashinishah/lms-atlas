@@ -5,7 +5,7 @@ ui_compare <- function() {
   div(
     class = "p-4",
     h4("TCGA vs. SPORE", class = "mb-1"),
-    p("Side-by-side cross-dataset comparison. Dataset toggle is disabled here.",
+    p("Cross-dataset overview — dataset toggle is disabled here. Click any slide to inspect it.",
       class = "text-muted mb-3"),
 
     fluidRow(

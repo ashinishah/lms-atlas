@@ -5,7 +5,7 @@ ui_gallery <- function() {
     class = "p-3",
     # ── Controls row ──────────────────────────────────────────────────────────
     div(
-      class = "d-flex align-items-center gap-3 mb-3 flex-wrap",
+      class = "gallery-controls d-flex align-items-center gap-3 mb-3 flex-wrap",
       # Search
       div(
         style = "width: 220px;",

@@ -1,56 +1,47 @@
 # ui_inspect.R — Inspect tab UI
-# Single-slide deep-dive. Four sub-modes: plain | heatmap | recurring | topk.
+# Layout: left info panel | WSI canvas | colorbar sidebar (heatmap) | right patch strip
 
 ui_inspect <- function() {
   div(
-    style = "padding: 0; height: calc(100vh - 56px);",  # fill under navbar
+    class = "inspect-layout",
 
+    # ── Left info panel ──────────────────────────────────────────────────────
     div(
-      class = "d-flex h-100",
-
-      # ── Left sidebar ───────────────────────────────────────────────────────
+      class = "inspect-info-panel",
+      div(class = "inspect-panel-divider"),
       div(
-        class = "inspect-sidebar",
+        class = "inspect-panel-section inspect-slide-info",
+        div(class = "inspect-section-label", "SLIDE INFO"),
         uiOutput("inspect_sidebar_content")
       ),
-
-      # ── Main panel ────────────────────────────────────────────────────────
       div(
-        class = "d-flex flex-column flex-grow-1 overflow-hidden",
-
-        # Mode bar
-        div(
-          class = "mode-bar d-flex align-items-center gap-2 px-3 py-2 border-bottom bg-white",
-          strong("View:", class = "me-1 text-muted fs-xs"),
-          div(
-            class = "btn-group btn-group-sm",
-            actionButton("mode_plain",     "Plain WSI",       class = "btn btn-outline-secondary"),
-            actionButton("mode_heatmap",   "Dense Heatmap",   class = "btn btn-outline-secondary"),
-            actionButton("mode_recurring", "Recurring Patches",class = "btn btn-outline-secondary"),
-            actionButton("mode_topk",      "Top K Patches",   class = "btn btn-outline-secondary")
-          ),
-          # K selector — shown only in topk mode
-          uiOutput("topk_selector_ui")
-        ),
-
-        # WSI canvas
-        div(
-          class = "wsi-canvas flex-grow-1 d-flex align-items-center justify-content-center",
-          uiOutput("wsi_image_ui"),
-          # Minimap
-          div(class = "minimap", uiOutput("minimap_ui")),
-          # Zoom controls
-          div(
-            class = "zoom-controls",
-            actionButton("zoom_in",    "+", class = "btn"),
-            actionButton("zoom_reset", "⊙", class = "btn"),
-            actionButton("zoom_out",   "−", class = "btn")
-          )
-        ),
-
-        # Bottom strip — patch strip OR heatmap hint bar, depending on mode
-        uiOutput("inspect_bottom_strip")
+        class = "inspect-panel-footer",
+        actionButton(
+          "inspect_add_compare", "+ Add to comparison",
+          class = "btn btn-sm btn-outline-secondary w-100"
+        )
       )
-    )
+    ),
+
+    # ── WSI canvas ───────────────────────────────────────────────────────────
+    div(
+      id    = "wsi_canvas",
+      class = "wsi-canvas",
+      uiOutput("wsi_image_ui"),
+      uiOutput("wsi_marker_svg"),
+      div(class = "minimap", uiOutput("minimap_ui")),
+      div(
+        class = "zoom-controls",
+        tags$button(class = "btn", onclick = "lmsZoomIn('wsi_canvas')",    title = "Zoom in",    "+"),
+        tags$button(class = "btn", onclick = "lmsZoomReset('wsi_canvas')", title = "Reset zoom", "⊙"),
+        tags$button(class = "btn", onclick = "lmsZoomOut('wsi_canvas')",   title = "Zoom out",   "−")
+      )
+    ),
+
+    # ── Colorbar sidebar (only in heatmap mode) ───────────────────────────────
+    uiOutput("inspect_colorbar_sidebar"),
+
+    # ── Right patch strip (topk / recurring mode) ─────────────────────────────
+    uiOutput("inspect_right_strip")
   )
 }

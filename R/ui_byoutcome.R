@@ -1,29 +1,34 @@
 # ui_byoutcome.R — By Outcome tab UI
-# Two-column layout: Favorable (left) vs Adverse (right)
+# Two scrollable columns: Favorable (left) | Adverse (right)
 
 ui_byoutcome <- function() {
   div(
-    class = "p-4",
-    h4("By Outcome", class = "mb-3"),
-    p("Slides grouped by prognosis for the selected dataset.", class = "text-muted mb-3"),
+    class = "byoutcome-layout",
 
-    fluidRow(
-      col_6(
-        div(
-          class = "d-flex align-items-center gap-2 mb-2",
-          span(class = "badge bg-success", "Favorable"),
-          span(uiOutput("byoutcome_favorable_count"), class = "text-muted fs-xs")
-        ),
-        uiOutput("byoutcome_favorable_grid")
+    # ── Favorable column ──────────────────────────────────────────────────────
+    div(
+      class = "byoutcome-col",
+      div(
+        class = "byoutcome-col-header",
+        style = "color: #166534;",
+        span("Favorable prognosis"),
+        span(class = "text-muted fw-normal fs-xs ms-2", uiOutput("byoutcome_favorable_count"))
       ),
-      col_6(
-        div(
-          class = "d-flex align-items-center gap-2 mb-2",
-          span(class = "badge bg-danger", "Adverse"),
-          span(uiOutput("byoutcome_adverse_count"), class = "text-muted fs-xs")
-        ),
-        uiOutput("byoutcome_adverse_grid")
-      )
+      div(class = "byoutcome-col-grid", uiOutput("byoutcome_favorable_grid"))
+    ),
+
+    div(class = "byoutcome-divider"),
+
+    # ── Adverse column ────────────────────────────────────────────────────────
+    div(
+      class = "byoutcome-col",
+      div(
+        class = "byoutcome-col-header",
+        style = "color: #991B1B;",
+        span("Adverse prognosis"),
+        span(class = "text-muted fw-normal fs-xs ms-2", uiOutput("byoutcome_adverse_count"))
+      ),
+      div(class = "byoutcome-col-grid", uiOutput("byoutcome_adverse_grid"))
     )
   )
 }

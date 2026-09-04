@@ -7,62 +7,70 @@ col_4  <- function(...) column(4,  ...)
 col_6  <- function(...) column(6,  ...)
 col_12 <- function(...) column(12, ...)
 
-# ── Image base path ────────────────────────────────────────────────────────────
-# Set LMS_IMAGE_BASE in .Renviron (local) or Connect Cloud env config (deploy).
-# Falls back to data/images for local dev if env var is not set.
-
+# ── Image base path (thumbnails + heatmaps) ────────────────────────────────────
 image_base <- function() {
-  Sys.getenv("LMS_IMAGE_BASE", unset = "data/images")
+  Sys.getenv("LMS_IMAGE_BASE", unset = "C:/data/lms-images")
 }
+
+# ── Globus/source data path (patch images + metadata CSVs) ────────────────────
+globus_base <- function() {
+  Sys.getenv("LMS_GLOBUS_BASE",
+    unset = "C:/Users/ashin/OneDrive/Documents/Globus/shiny/tcga_sarc")
+}
+
+patches_base <- function() file.path(globus_base(), "patches")
 
 # ── Image URL helpers ──────────────────────────────────────────────────────────
 
 thumbnail_url <- function(slide_id) {
-  file.path(image_base(), "thumbnails", paste0(slide_id, "_thumbnail.jpg"))
+  paste0("lms-images/thumbnails/", slide_id, ".png")
 }
 
 heatmap_url <- function(slide_id) {
-  file.path(image_base(), "heatmaps", paste0(slide_id, "_heatmap.jpg"))
+  paste0("lms-images/heatmaps/", slide_id, "_true_consensus.png")
 }
 
+# patch_id is the full {slide_id}_{x}_{y} string
 patch_url <- function(slide_id, patch_id) {
-  file.path(image_base(), "patches", slide_id, paste0(patch_id, ".jpg"))
+  paste0("lms-patches/", slide_id, "/", patch_id, ".png")
 }
 
 # ── Outcome badge ──────────────────────────────────────────────────────────────
-# Returns an HTML span with a color-coded badge.
-
 outcome_badge <- function(outcome) {
-  cls <- if (tolower(outcome) == "favorable") "badge bg-success" else "badge bg-danger"
-  label <- if (tolower(outcome) == "favorable") "Favorable" else "Adverse"
-  htmltools::tags$span(class = cls, label)
+  if (tolower(outcome) == "favorable") {
+    htmltools::tags$span(class = "badge",
+      style = "background-color:#166534; color:#fff;", "Favorable")
+  } else {
+    htmltools::tags$span(class = "badge",
+      style = "background-color:#991B1B; color:#fff;", "Adverse")
+  }
 }
 
 # ── Dataset badge ──────────────────────────────────────────────────────────────
-
 dataset_badge <- function(dataset) {
-  cls <- if (dataset == "TCGA") "badge" else "badge"
-  style <- if (dataset == "TCGA") {
-    "background-color: #0D9488;"
-  } else {
-    "background-color: #D97706;"
-  }
-  htmltools::tags$span(class = cls, style = style, dataset)
+  style <- if (dataset == "TCGA") "background-color:#0D9488;" else "background-color:#D97706;"
+  htmltools::tags$span(class = "badge", style = style, dataset)
 }
 
-# ── Attention marker color ─────────────────────────────────────────────────────
-# Maps attention score (0–1) to viridis-inspired marker color.
+# ── Short slide ID ─────────────────────────────────────────────────────────────
+short_id <- function(slide_id) {
+  sub("^([^-]+-[^-]+-[^-]+).*", "\\1", slide_id)
+}
 
+# ── Attention marker color (plasma colormap) ───────────────────────────────────
 attention_marker_color <- function(score) {
   dplyr::case_when(
-    score >= 0.80 ~ "#FDE725",  # yellow — high attention
-    score >= 0.60 ~ "#5DC963",  # green  — mid attention
-    TRUE          ~ "#3B528B"   # blue-purple — lower attention
+    score >= 0.80 ~ "#FCCE25",
+    score >= 0.55 ~ "#E8612A",
+    TRUE          ~ "#8B1FA8"
   )
 }
 
-# ── Filter metadata by dataset ─────────────────────────────────────────────────
+attention_marker_text <- function(score) {
+  dplyr::if_else(score >= 0.55, "#1A1A2E", "#FFFFFF")
+}
 
+# ── Filter metadata by dataset ─────────────────────────────────────────────────
 filter_dataset <- function(metadata, dataset) {
   dplyr::filter(metadata, dataset == !!dataset)
 }

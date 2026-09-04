@@ -1,4 +1,4 @@
-# server_compare.R — TCGA vs SPORE comparison tab server logic
+# server_compare.R — TCGA vs SPORE cross-dataset tab server logic
 # Both datasets shown simultaneously; dataset toggle in header is grayed out.
 
 server_compare <- function(input, output, session, state, metadata, accent) {
@@ -14,14 +14,16 @@ server_compare <- function(input, output, session, state, metadata, accent) {
     sprintf("(%d slides)", nrow(spore_slides()))
   })
 
-  # Helper to render a mini grid
   mini_grid <- function(df, dataset) {
     if (nrow(df) == 0) return(div(class = "text-muted", "No slides."))
     accent_color <- if (dataset == "TCGA") "#0D9488" else "#D97706"
+    mode <- state$inspect_mode
 
     cards <- lapply(seq_len(nrow(df)), function(i) {
       row <- df[i, ]
       sid <- row$slide_id
+      img_src <- if (mode == "heatmap") heatmap_url(sid) else thumbnail_url(sid)
+
       div(
         class   = "col-6 mb-2",
         div(
@@ -31,19 +33,14 @@ server_compare <- function(input, output, session, state, metadata, accent) {
             "Shiny.setInputValue('compare_selected_slide', '%s', {priority: 'event'});", sid
           ),
           tags$img(
-            src     = thumbnail_url(sid),
+            src     = img_src,
             alt     = sid,
             onerror = "this.src='https://placehold.co/300x140/e2e8f0/94a3b8?text=No+image';"
           ),
           div(
             class = "card-body",
-            div(class = "fw-semibold text-truncate fs-xs", sid),
-            div(
-              class = "d-flex align-items-center gap-1 mt-1",
-              outcome_badge(row$outcome),
-              span(class = "text-muted fs-xs ms-auto",
-                   sprintf("attn %.2f", row$max_attention))
-            )
+            div(class = "fw-semibold text-truncate fs-xs", short_id(sid)),
+            div(class = "mt-1", outcome_badge(row$outcome))
           )
         )
       )
@@ -57,12 +54,10 @@ server_compare <- function(input, output, session, state, metadata, accent) {
 
   observeEvent(input$compare_selected_slide, {
     state$selected_slide_id <- input$compare_selected_slide
-    # Set dataset to match the clicked slide
     clicked_meta <- metadata()[metadata()$slide_id == input$compare_selected_slide, ]
     if (nrow(clicked_meta) > 0) {
       state$selected_dataset <- clicked_meta$dataset[1]
-      updateRadioButtons(session, "dataset_toggle", selected = clicked_meta$dataset[1])
     }
-    updateNavbarPage(session, "main_nav", selected = "Inspect")
+    shinyjs::runjs("lmsNavigate('inspect');")
   })
 }

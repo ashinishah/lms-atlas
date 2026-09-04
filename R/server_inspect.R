@@ -1,7 +1,14 @@
 # server_inspect.R — Inspect tab server logic
-# Most complex server module. Handles mode switching, image display, and patch strip.
 
 server_inspect <- function(input, output, session, state, metadata, accent) {
+
+  # ── Load patch metadata once ───────────────────────────────────────────────
+  pm_path <- file.path(globus_base(), "patch_metadata.csv")
+  all_patches <- if (file.exists(pm_path)) {
+    readr::read_csv(pm_path, show_col_types = FALSE)
+  } else {
+    NULL
+  }
 
   # ── Current slide row ──────────────────────────────────────────────────────
   current_slide <- reactive({
@@ -10,77 +17,59 @@ server_inspect <- function(input, output, session, state, metadata, accent) {
     meta[meta$slide_id == state$selected_slide_id, ]
   })
 
-  # ── Mode switching ─────────────────────────────────────────────────────────
-  observeEvent(input$mode_plain,     { state$inspect_mode <- "plain"     })
-  observeEvent(input$mode_heatmap,   { state$inspect_mode <- "heatmap"   })
-  observeEvent(input$mode_recurring, { state$inspect_mode <- "recurring" })
-  observeEvent(input$mode_topk,      { state$inspect_mode <- "topk"      })
+  # All patches for current slide, sorted by attention (for extent + topk base)
+  slide_patches <- reactive({
+    req(state$selected_slide_id)
+    if (is.null(all_patches)) return(NULL)
+    df <- all_patches[all_patches$slide_id == state$selected_slide_id, ]
+    df[order(-df$attention_mean), ]
+  })
 
-  # Highlight the active mode button
-  observe({
+  # Filtered + ranked patches for the current mode (shared by cards and markers)
+  mode_patches <- reactive({
+    df   <- slide_patches()
+    if (is.null(df) || nrow(df) == 0) return(df)
     mode <- state$inspect_mode
-    modes <- c("plain", "heatmap", "recurring", "topk")
-    ids   <- c("mode_plain", "mode_heatmap", "mode_recurring", "mode_topk")
-    for (i in seq_along(modes)) {
-      cls <- if (modes[i] == mode) {
-        "btn btn-outline-secondary active"
-      } else {
-        "btn btn-outline-secondary"
-      }
-      shinyjs::runjs(sprintf(
-        "document.getElementById('%s').className = '%s';", ids[i], cls
-      ))
+
+    if (mode == "topk") {
+      k <- state$topk_k
+      df[seq_len(min(k, nrow(df))), ]
+    } else if (mode == "recurring") {
+      rec <- df[df$n_seeds_top >= 3, ]
+      rec <- rec[order(-rec$recurrence_count, -rec$attention_mean), ]
+      rec[seq_len(min(30L, nrow(rec))), ]
+    } else {
+      df
     }
   })
 
-  # ── K selector (Top K mode only) ───────────────────────────────────────────
-  output$topk_selector_ui <- renderUI({
-    req(state$inspect_mode == "topk")
-    div(
-      class = "ms-3 d-flex align-items-center gap-2",
-      span("K =", class = "text-muted fs-xs"),
-      div(
-        class = "btn-group btn-group-sm",
-        lapply(c(5L, 10L, 20L, 30L), function(k) {
-          is_active <- identical(state$topk_k, k)
-          actionButton(
-            paste0("topk_k_", k),
-            label = as.character(k),
-            class = if (is_active) "btn btn-accent" else "btn btn-outline-secondary"
-          )
-        })
-      )
-    )
+  # Reset zoom + pan when slide changes
+  observeEvent(state$selected_slide_id, {
+    shinyjs::runjs("lmsZoomReset('wsi_canvas');")
   })
 
-  lapply(c(5L, 10L, 20L, 30L), function(k) {
-    observeEvent(input[[paste0("topk_k_", k)]], {
-      state$topk_k <- k
-    }, ignoreInit = TRUE)
+  # Scroll right strip when highlighted patch changes
+  observeEvent(state$highlighted_patch, {
+    pid <- state$highlighted_patch
+    req(!is.null(pid) && nchar(pid) > 0)
+    shinyjs::runjs(sprintf("lmsScrollToPatch('%s');", pid))
   })
 
-  # ── Left sidebar ───────────────────────────────────────────────────────────
+  # ── Slide info panel ───────────────────────────────────────────────────────
   output$inspect_sidebar_content <- renderUI({
     if (is.null(state$selected_slide_id)) {
-      return(div(
-        class = "text-muted",
-        p("Select a slide from the Gallery to inspect it.")
-      ))
+      return(div(class = "text-muted mt-2 fs-sm",
+                 "Select a slide from the Gallery to inspect it."))
     }
-
     row <- current_slide()
     if (nrow(row) == 0) return(div(class = "text-muted", "Slide not found."))
 
-    mode_label <- switch(state$inspect_mode,
-      plain     = "Plain WSI",
-      heatmap   = "Dense Heatmap",
-      recurring = "Recurring Patches",
-      topk      = sprintf("Top K patches: K = %d", state$topk_k)
-    )
-
     tagList(
-      div(class = "slide-label", "Slide ID"),
-      div(class = "slide-value text-truncate", row$slide_id),
+      div(class = "slide-label mt-2", "Slide ID"),
+      div(class = "slide-value text-truncate fs-xs", row$slide_id),
+
+      div(class = "slide-label", "Case ID"),
+      div(class = "slide-value", short_id(row$slide_id)),
 
       div(class = "slide-label", "Dataset"),
       div(class = "slide-value", dataset_badge(row$dataset)),
@@ -90,48 +79,29 @@ server_inspect <- function(input, output, session, state, metadata, accent) {
 
       hr(class = "my-2"),
 
-      div(class = "slide-label", "Age"),
-      div(class = "slide-value", row$age),
+      div(class = "slide-label", "Age at diagnosis"),
+      div(class = "slide-value", paste(row$age, "yrs")),
 
-      div(class = "slide-label", "Grade"),
-      div(class = "slide-value", row$grade),
-
-      div(class = "slide-label", "Site"),
-      div(class = "slide-value", row$site),
+      div(class = "slide-label", "Primary site"),
+      div(class = "slide-value fs-xs", row$site),
 
       hr(class = "my-2"),
 
-      div(class = "slide-label", "Max attention"),
-      div(class = "slide-value", sprintf("%.3f", row$max_attention)),
-
-      div(class = "slide-label", "Mean attention"),
-      div(class = "slide-value", sprintf("%.3f", row$mean_attention)),
-
-      div(class = "slide-label", "Patches"),
-      div(class = "slide-value", row$n_patches),
-
-      hr(class = "my-2"),
-
-      div(class = "slide-label", "Mode"),
-      div(class = "mode-info", mode_label)
+      div(class = "slide-label", "Total patches"),
+      div(class = "slide-value",
+          if (is.na(row$n_patches)) "—" else format(row$n_patches, big.mark = ","))
     )
   })
 
   # ── WSI image ──────────────────────────────────────────────────────────────
   output$wsi_image_ui <- renderUI({
     req(state$selected_slide_id)
-    sid <- state$selected_slide_id
-
-    img_src <- if (state$inspect_mode == "heatmap") {
-      heatmap_url(sid)
-    } else {
-      thumbnail_url(sid)
-    }
-
+    sid     <- state$selected_slide_id
+    img_src <- if (state$inspect_mode == "heatmap") heatmap_url(sid) else thumbnail_url(sid)
     tags$img(
-      class  = "wsi-image",
-      src    = img_src,
-      alt    = sid,
+      class   = "wsi-image",
+      src     = img_src,
+      alt     = sid,
       onerror = "this.src='https://placehold.co/800x600/0f172a/94a3b8?text=No+image';"
     )
   })
@@ -140,86 +110,193 @@ server_inspect <- function(input, output, session, state, metadata, accent) {
   output$minimap_ui <- renderUI({
     req(state$selected_slide_id)
     tags$img(
-      src   = thumbnail_url(state$selected_slide_id),
-      alt   = "minimap",
+      src     = thumbnail_url(state$selected_slide_id),
+      alt     = "minimap",
       onerror = "this.style.display='none';"
     )
-    # TODO: add viewport-rect overlay once pan/zoom is implemented
   })
 
-  # ── Bottom strip ───────────────────────────────────────────────────────────
-  output$inspect_bottom_strip <- renderUI({
+  # ── WSI marker SVG (topk / recurring modes) ────────────────────────────────
+  output$wsi_marker_svg <- renderUI({
+    req(state$selected_slide_id)
     mode <- state$inspect_mode
+    if (!mode %in% c("recurring", "topk")) return(NULL)
 
-    if (mode == "heatmap") {
-      # Hint bar with colorbar
-      div(
-        class = "heatmap-hint",
-        div(
-          class = "colorbar-wrap",
-          span("Low"),
-          div(class = "colorbar"),
-          span("High"),
-          span("· Viridis attention scale (0–1)", class = "ms-2")
+    df_mode <- mode_patches()
+    if (is.null(df_mode) || nrow(df_mode) == 0) return(NULL)
+
+    # Use all patches for extent so scaling matches full slide
+    df_all <- slide_patches()
+    slide_ext_x <- if (!is.null(df_all) && nrow(df_all) > 0)
+      max(df_all$x_coord + 256L) else max(df_mode$x_coord + 256L)
+    slide_ext_y <- if (!is.null(df_all) && nrow(df_all) > 0)
+      max(df_all$y_coord + 256L) else max(df_mode$y_coord + 256L)
+
+    r_base <- max(200L, round(min(slide_ext_x, slide_ext_y) / 60))
+
+    markers <- lapply(seq_len(nrow(df_mode)), function(i) {
+      row  <- df_mode[i, ]
+      cx   <- row$x_coord + 128L
+      cy   <- row$y_coord + 128L
+      pid  <- row$patch_id
+      attn <- row$attention_mean
+      bg   <- attention_marker_color(attn)
+      txt  <- attention_marker_text(attn)
+      highlighted <- identical(state$highlighted_patch, pid)
+      r    <- if (highlighted) round(r_base * 1.5) else r_base
+      fsz  <- round(r * 1.05)
+
+      tagList(
+        tags$circle(
+          cx             = cx,
+          cy             = cy,
+          r              = r,
+          fill           = bg,
+          stroke         = if (highlighted) "#ffffff" else "rgba(0,0,0,0.35)",
+          `stroke-width` = round(r / 6),
+          style          = "cursor: pointer;",
+          onclick        = sprintf(
+            "Shiny.setInputValue('inspect_patch_clicked','%s',{priority:'event'});", pid
+          )
+        ),
+        tags$text(
+          x                  = cx,
+          y                  = cy,
+          `text-anchor`      = "middle",
+          `dominant-baseline`= "central",
+          fill               = txt,
+          style              = sprintf(
+            "font-size: %dpx; font-weight: 700; pointer-events: none;", fsz
+          ),
+          as.character(i)
         )
       )
-    } else if (mode %in% c("recurring", "topk")) {
-      # Patch strip — populated by server
-      div(
-        class = "patch-strip-wrapper",
-        uiOutput("patch_strip_cards")
-      )
-    } else {
-      # Plain mode — no strip
-      NULL
-    }
+    })
+
+    tags$svg(
+      class               = "wsi-marker-svg",
+      viewBox             = paste0("0 0 ", slide_ext_x, " ", slide_ext_y),
+      preserveAspectRatio = "xMidYMid meet",
+      tagList(markers)
+    )
   })
 
-  # ── Patch strip cards ──────────────────────────────────────────────────────
-  output$patch_strip_cards <- renderUI({
+  # ── Colorbar sidebar (heatmap mode only, collapsible) ─────────────────────
+  output$inspect_colorbar_sidebar <- renderUI({
+    if (state$inspect_mode != "heatmap") return(NULL)
+    div(
+      class = "colorbar-sidebar",
+      id    = "colorbar_sidebar",
+      tags$button(
+        class   = "colorbar-toggle",
+        title   = "Toggle colorbar",
+        onclick = paste0(
+          "var s = document.getElementById('colorbar_sidebar');",
+          "s.classList.toggle('collapsed');",
+          "this.textContent = s.classList.contains('collapsed') ? '▶' : '◀';"
+        ),
+        "◀"
+      ),
+      div(
+        class = "colorbar-body",
+        div("High", class = "colorbar-scale-label"),
+        tags$img(
+          src   = "lms-images/heatmaps/attention_colorbar.png",
+          class = "colorbar-bar-img",
+          alt   = "Attention scale"
+        ),
+        div("Low", class = "colorbar-scale-label")
+      )
+    )
+  })
+
+  # ── Right patch strip ──────────────────────────────────────────────────────
+  output$inspect_right_strip <- renderUI({
+    mode <- state$inspect_mode
+    if (!mode %in% c("recurring", "topk")) return(NULL)
+
+    label <- if (mode == "topk") {
+      sprintf("Top %d patches", state$topk_k)
+    } else {
+      "Recurring patches"
+    }
+
+    div(
+      class = "inspect-right-strip",
+      div(
+        class = "strip-header",
+        div(label, class = "fw-semibold fs-xs"),
+        div("ranked by attention", class = "text-muted fs-xs mt-1")
+      ),
+      uiOutput("right_patch_cards")
+    )
+  })
+
+  # ── Patch cards with real data ─────────────────────────────────────────────
+  output$right_patch_cards <- renderUI({
     req(state$selected_slide_id)
     req(state$inspect_mode %in% c("recurring", "topk"))
 
-    sid <- state$selected_slide_id
+    sid  <- state$selected_slide_id
+    mode <- state$inspect_mode
+    df   <- mode_patches()
 
-    # TODO: load real patch metadata from file
-    # For now, generate placeholder patch cards
-    k <- if (state$inspect_mode == "topk") state$topk_k else 8L
-    patch_ids <- paste0("patch_", seq_len(k))
-    fake_scores <- sort(runif(k, 0.5, 0.95), decreasing = TRUE)
+    if (is.null(df) || nrow(df) == 0) {
+      return(div(class = "text-muted p-3 fs-xs", "No patch data available."))
+    }
 
-    lapply(seq_len(k), function(i) {
-      pid   <- patch_ids[i]
-      score <- fake_scores[i]
-      color <- attention_marker_color(score)
-      highlighted <- identical(state$highlighted_patch, pid)
+    lapply(seq_len(nrow(df)), function(i) {
+      row        <- df[i, ]
+      score      <- row$attention_mean
+      patch_id   <- row$patch_id
+      bg_color   <- attention_marker_color(score)
+      txt_color  <- attention_marker_text(score)
+      highlighted <- identical(state$highlighted_patch, patch_id)
 
       div(
-        class   = paste0("patch-card", if (highlighted) " highlighted" else ""),
-        onclick = sprintf(
-          "Shiny.setInputValue('inspect_patch_clicked', '%s', {priority: 'event'});", pid
-        ),
-        tags$img(
-          src     = patch_url(sid, pid),
-          alt     = pid,
-          onerror = "this.src='https://placehold.co/108x80/f8f9fa/94a3b8?text=patch';"
+        class          = paste0("patch-card-v", if (highlighted) " highlighted" else ""),
+        `data-patch-id`= patch_id,
+        onclick        = sprintf(
+          "Shiny.setInputValue('inspect_patch_clicked','%s',{priority:'event'});", patch_id
         ),
         div(
-          class = "patch-meta d-flex align-items-center gap-1",
-          tags$span(
-            class = "patch-badge",
-            style = sprintf("background: %s;", color),
-            as.character(i)
+          class = "patch-img-wrap",
+          tags$img(
+            src     = patch_url(sid, patch_id),
+            alt     = patch_id,
+            onerror = "this.src='https://placehold.co/134x134/f8f9fa/94a3b8?text=patch';"
           ),
-          sprintf("attn %.3f", score)
+          tags$span(class = "patch-rank", as.character(i)),
+          if (mode == "recurring") {
+            tags$span(
+              class = "patch-recurrence-badge",
+              paste0("×", row$recurrence_count)
+            )
+          } else {
+            tags$span(
+              class = "patch-attn",
+              style = sprintf("background:%s; color:%s;", bg_color, txt_color),
+              sprintf("%.2f", score)
+            )
+          }
         )
       )
     })
   })
 
-  # ── Bidirectional patch linking ────────────────────────────────────────────
+  # ── Patch click → highlight + scroll ──────────────────────────────────────
   observeEvent(input$inspect_patch_clicked, {
     state$highlighted_patch <- input$inspect_patch_clicked
-    # TODO: pan WSI to patch coordinates when pan/zoom is implemented
+  })
+
+  # ── Add to comparison ──────────────────────────────────────────────────────
+  observeEvent(input$inspect_add_compare, {
+    req(state$selected_slide_id)
+    if (is.null(state$compare_slide_a)) {
+      state$compare_slide_a <- state$selected_slide_id
+    } else {
+      state$compare_slide_b <- state$selected_slide_id
+    }
+    shinyjs::runjs("lmsNavigate('compare_slides');")
   })
 }

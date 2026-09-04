@@ -1,107 +1,361 @@
 /* custom.css — LMS Atlas
-   Accent color is controlled by --accent CSS variable.
-   Swapped at runtime via shinyjs::runjs() in app.R server when dataset changes.
-   Default: TCGA teal. SPORE gold is #D97706.
+   --accent is swapped at runtime via shinyjs when the dataset changes.
+   Default: TCGA teal (#0D9488). SPORE gold: #D97706.
 */
 
 /* ── Root tokens ─────────────────────────────────────────────────────────── */
 :root {
-  --accent:          #0D9488;   /* TCGA teal default */
-  --accent-light:    #CCFBF1;   /* tint for hover states */
-  --accent-dark:     #0F766E;   /* shade for active states */
-
-  --card-radius:     10px;
-  --strip-height:    148px;
-  --sidebar-width:   216px;
+  --accent:        #0D9488;
+  --accent-light:  #CCFBF1;
+  --accent-dark:   #0F766E;
+  --sidebar-width: 200px;
+  --header-height: 56px;
+  --topbar-height: 46px;
+  --info-width:    224px;
+  --strip-width:   152px;
+  --card-radius:   8px;
+  --favorable:     #166534;
+  --adverse:       #991B1B;
 }
 
-/* ── Accent-colored elements ─────────────────────────────────────────────── */
-.btn-accent {
+/* ── Full-height layout ──────────────────────────────────────────────────── */
+html, body { height: 100%; margin: 0; }
+
+.bslib-page-fill {
+  overflow: hidden !important;
+  height:   100vh !important;
+}
+
+.lms-layout {
+  display:        flex;
+  flex-direction: column;
+  width:          100%;
+  height:         100%;
+}
+
+/* ── Global header (full width, above sidebar + main) ────────────────────── */
+.lms-global-header {
+  display:      flex;
+  flex-shrink:  0;
+  height:       var(--header-height);
+  min-height:   var(--header-height);
+  border-bottom: 3px solid var(--accent);
+}
+
+.lms-header-brand {
+  width:          var(--sidebar-width);
+  min-width:      var(--sidebar-width);
+  background:     #1A1A2E;
+  display:        flex;
+  flex-direction: column;
+  justify-content: center;
+  padding:        0 1rem;
+  flex-shrink:    0;
+}
+
+.lms-header-content {
+  flex:        1;
+  background:  #fff;
+  border-left: 1px solid rgba(255,255,255,0.06);
+  display:     flex;
+  align-items: center;
+  padding:     0 1.5rem;
+  gap:         1rem;
+}
+
+.lms-header-title {
+  font-size:   0.83rem;
+  font-weight: 600;
+  color:       #1A1A2E;
+}
+
+.lms-header-sub {
+  font-size: 0.74rem;
+  color:     #64748B;
+}
+
+/* ── Body row (sidebar + main, below header) ─────────────────────────────── */
+.lms-body {
+  flex:     1;
+  display:  flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Left sidebar ────────────────────────────────────────────────────────── */
+.lms-sidebar {
+  width:      var(--sidebar-width);
+  min-width:  var(--sidebar-width);
+  background: #1A1A2E;
+  display:    flex;
+  flex-direction: column;
+  overflow-y: auto;
+  z-index:    10;
+}
+
+/* Brand lives in .lms-header-brand; keep classes for compat */
+.lms-brand-name {
+  font-size:   1.05rem;
+  font-weight: 700;
+  color:       #fff;
+  line-height: 1.2;
+}
+.lms-brand-sub {
+  font-size:   0.65rem;
+  color:       #94A3B8;
+  margin-top:  2px;
+  line-height: 1.3;
+}
+
+.lms-nav { padding: 0.5rem 0; flex: 1; }
+
+.lms-nav-section-label {
+  padding:         0.85rem 1rem 0.25rem;
+  font-size:       0.6rem;
+  text-transform:  uppercase;
+  letter-spacing:  0.09em;
+  color:           #475569;
+  font-weight:     600;
+}
+
+.lms-nav-item {
+  display:      flex;
+  align-items:  center;
+  gap:          0.55rem;
+  width:        100%;
+  padding:      0.42rem 1rem;
+  background:   none;
+  border:       none;
+  border-left:  3px solid transparent;
+  color:        #94A3B8;
+  font-size:    0.83rem;
+  text-align:   left;
+  cursor:       pointer;
+  transition:   background 0.1s, color 0.1s;
+}
+.lms-nav-item:hover  { background: rgba(255,255,255,0.05); color: #CBD5E1; }
+.lms-nav-item.active {
+  background:       rgba(13, 148, 136, 0.14);
+  color:            #fff;
+  border-left-color: var(--accent);
+  font-weight:      600;
+}
+.lms-nav-icon {
+  width:      15px;
+  text-align: center;
+  font-size:  0.78rem;
+  opacity:    0.8;
+}
+
+/* ── Main area ───────────────────────────────────────────────────────────── */
+.lms-main {
+  flex:       1;
+  display:    flex;
+  flex-direction: column;
+  overflow:   hidden;
+  min-width:  0;
+  background: #F8F9FA;
+}
+
+.lms-topbar {
+  display:         flex;
+  align-items:     center;
+  padding:         0 1.25rem;
+  gap:             0.75rem;
+  height:          var(--topbar-height);
+  min-height:      var(--topbar-height);
+  border-bottom:   1px solid #E2E8F0;
+  background:      #fff;
+  flex-shrink:     0;
+  box-shadow:      0 1px 3px rgba(0,0,0,0.04);
+}
+
+/* ── View mode bar (topbar) ──────────────────────────────────────────────── */
+.view-mode-bar {
+  display: flex;
+  gap:     3px;
+}
+.mode-btn {
+  font-size:    0.74rem;
+  padding:      0.2rem 0.6rem;
+  border-color: #CBD5E1;
+  color:        #475569;
+  white-space:  nowrap;
+}
+.mode-btn-active {
+  background-color: var(--accent) !important;
+  border-color:     var(--accent) !important;
+  color:            #fff !important;
+  font-weight:      600;
+}
+
+.lms-pages {
+  flex:     1;
+  overflow: hidden;
+  position: relative;
+}
+
+.lms-page {
+  height:     100%;
+  overflow-y: auto;
+}
+
+/* These pages manage scroll internally */
+#page_inspect.lms-page,
+#page_compare_slides.lms-page,
+#page_byoutcome.lms-page { overflow: hidden; }
+
+/* ── Dataset toggle ──────────────────────────────────────────────────────── */
+.dataset-btn {
+  border-color: var(--accent);
+  color:        var(--accent);
+  font-weight:  600;
+  font-size:    0.79rem;
+  padding:      0.22rem 0.7rem;
+}
+.dataset-btn.active {
   background-color: var(--accent);
   border-color:     var(--accent);
   color:            #fff;
 }
-.btn-accent:hover {
-  background-color: var(--accent-dark);
-  border-color:     var(--accent-dark);
-  color:            #fff;
+.dataset-btn:hover:not(.active) {
+  background-color: var(--accent-light);
+  color:            var(--accent);
 }
 
-.text-accent   { color: var(--accent) !important; }
-.border-accent { border-color: var(--accent) !important; }
-.bg-accent     { background-color: var(--accent) !important; }
+/* ── Accent utility classes ──────────────────────────────────────────────── */
+.btn-accent      { background-color: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-accent:hover{ background-color: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+.text-accent     { color: var(--accent) !important; }
+.border-accent   { border-color: var(--accent) !important; }
+.bg-accent       { background-color: var(--accent) !important; }
+.fs-xs           { font-size: 0.74rem; }
+.cursor-pointer  { cursor: pointer; }
 
-/* Dataset toggle in navbar */
-.dataset-toggle .btn-check:checked + .btn {
-  background-color: var(--accent);
-  border-color:     var(--accent);
-  color:            #fff;
+/* ── Cards (general) ────────────────────────────────────────────────────── */
+.card {
+  border-radius: var(--card-radius) !important;
+  box-shadow:    0 1px 3px rgba(0,0,0,0.06);
+  border:        1px solid #E2E8F0;
+}
+.card-header {
+  font-weight:   600;
+  font-size:     0.83rem;
+  background:    transparent;
+  border-bottom: 1px solid #E2E8F0;
+  padding:       0.6rem 1rem;
 }
 
-/* Active mode bar button in Inspect */
-.mode-bar .btn.active,
-.mode-bar .btn:focus {
-  background-color: var(--accent);
-  border-color:     var(--accent);
-  color:            #fff;
-  box-shadow:       none;
+/* ── value_box typography ────────────────────────────────────────────────── */
+.value-box .value-box-value {
+  font-size:   2.2rem !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+}
+.value-box .value-box-title {
+  font-size:      0.68rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity:        0.85;
 }
 
 /* ── Gallery card grid ───────────────────────────────────────────────────── */
 .slide-card {
-  border-radius:  var(--card-radius);
-  overflow:       hidden;
-  cursor:         pointer;
-  transition:     box-shadow 0.15s ease, transform 0.15s ease;
-  border:         1px solid #E2E8F0;
+  border-radius: var(--card-radius);
+  overflow:      hidden;
+  cursor:        pointer;
+  transition:    box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+  border:        1px solid #E2E8F0;
+  background:    #fff;
 }
 .slide-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  transform:  translateY(-2px);
+  box-shadow:   0 4px 16px rgba(0,0,0,0.11);
+  transform:    translateY(-2px);
   border-color: var(--accent);
 }
 .slide-card img {
-  width:       100%;
-  height:      140px;
-  object-fit:  cover;
+  width:      100%;
+  height:     140px;
+  object-fit: cover;
 }
 .slide-card .card-body {
-  padding: 0.6rem 0.75rem;
-  font-size: 0.82rem;
+  padding:   0.55rem 0.75rem;
+  font-size: 0.81rem;
 }
+
+/* Gallery controls */
+.gallery-controls input,
+.gallery-controls select { height: 36px; }
 
 /* ── Inspect layout ──────────────────────────────────────────────────────── */
-.inspect-sidebar {
-  width:      var(--sidebar-width);
-  min-width:  var(--sidebar-width);
-  max-width:  var(--sidebar-width);
-  overflow-y: auto;
-  padding:    1rem;
-  border-right: 1px solid #E2E8F0;
-  font-size:  0.85rem;
-}
-.inspect-sidebar .slide-label {
-  font-size:   0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color:       #64748B;
-}
-.inspect-sidebar .slide-value {
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-.inspect-sidebar .mode-info {
-  color:       var(--accent);
-  font-weight: 600;
-  font-size:   0.8rem;
+.inspect-layout {
+  display:  flex;
+  height:   100%;
+  overflow: hidden;
 }
 
-/* ── WSI canvas area ─────────────────────────────────────────────────────── */
-.wsi-canvas {
-  position:   relative;
+/* Left info panel */
+.inspect-info-panel {
+  width:      var(--info-width);
+  min-width:  var(--info-width);
+  background: #fff;
+  border-right: 1px solid #E2E8F0;
+  display:    flex;
+  flex-direction: column;
+  overflow:   hidden;
+  font-size:  0.82rem;
+}
+.inspect-panel-section {
+  padding: 12px 14px;
+}
+.inspect-slide-info {
   flex:       1;
+  overflow-y: auto;
+}
+.inspect-panel-divider { border-bottom: 1px solid #E2E8F0; }
+.inspect-panel-footer {
+  padding:    10px 14px;
+  border-top: 1px solid #E2E8F0;
+  flex-shrink: 0;
+}
+.inspect-section-label {
+  font-size:      0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color:          #94A3B8;
+  font-weight:    600;
+  margin-bottom:  6px;
+}
+.active-mode-btn {
+  background-color: rgba(13,148,136,0.1) !important;
+  border-color:     var(--accent) !important;
+  color:            var(--accent) !important;
+  font-weight:      600;
+}
+
+/* Slide metadata rows */
+.slide-label {
+  font-size:      0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color:          #64748B;
+  margin-top:     0.5rem;
+}
+.slide-value {
+  font-weight:   600;
+  margin-bottom: 0.1rem;
+}
+
+/* ── WSI canvas ──────────────────────────────────────────────────────────── */
+.wsi-canvas {
+  flex:       1;
+  position:   relative;
   overflow:   hidden;
   background: #0F172A;
+  display:    flex;
+  align-items: center;
+  justify-content: center;
+  min-width:  0;
 }
 .wsi-canvas img.wsi-image {
   max-width:  100%;
@@ -109,123 +363,442 @@
   object-fit: contain;
 }
 
-/* Minimap (bottom-left of WSI) */
+/* Zoom controls */
+.zoom-controls {
+  position:       absolute;
+  top:            12px;
+  right:          12px;
+  display:        flex;
+  flex-direction: column;
+  gap:            4px;
+}
+.zoom-controls .btn {
+  width:       32px;
+  height:      32px;
+  padding:     0;
+  font-size:   1rem;
+  line-height: 1;
+  background:  rgba(255,255,255,0.85);
+  border:      1px solid rgba(0,0,0,0.18);
+}
+
+/* Minimap */
 .minimap {
   position:      absolute;
   bottom:        12px;
   left:          12px;
-  width:         120px;
-  border:        2px solid rgba(255,255,255,0.4);
+  width:         110px;
+  border:        2px solid rgba(255,255,255,0.35);
   border-radius: 4px;
   overflow:      hidden;
 }
-.minimap img { width: 100%; display: block; }
+.minimap img       { width: 100%; display: block; }
 .minimap .viewport-rect {
-  position:      absolute;
-  border:        2px solid #0D9488;
+  position:       absolute;
+  border:         2px solid #0D9488;
   pointer-events: none;
 }
 
-/* Zoom controls (bottom-right of WSI) */
-.zoom-controls {
-  position: absolute;
-  bottom:   12px;
-  right:    12px;
-  display:  flex;
-  flex-direction: column;
-  gap:      4px;
+/* Heatmap colorbar overlay */
+.heatmap-colorbar-overlay {
+  position:      absolute;
+  bottom:        12px;
+  right:         12px;
+  background:    rgba(0,0,0,0.55);
+  border-radius: 6px;
+  padding:       6px 8px;
 }
-.zoom-controls .btn {
-  width:   32px;
-  height:  32px;
-  padding: 0;
-  font-size: 1rem;
-  line-height: 1;
-  background: rgba(255,255,255,0.85);
-  border:  1px solid rgba(0,0,0,0.2);
+.colorbar-img {
+  height:        140px;
+  width:         auto;
+  display:       block;
 }
 
-/* ── Patch strip ─────────────────────────────────────────────────────────── */
-.patch-strip-wrapper {
-  height:     var(--strip-height);
-  min-height: var(--strip-height);
-  max-height: var(--strip-height);
-  overflow-x: auto;
-  overflow-y: hidden;
-  display:    flex;
-  align-items: center;
-  gap:        8px;
-  padding:    6px 10px;
-  border-top: 1px solid #E2E8F0;
+/* ── Right patch strip ───────────────────────────────────────────────────── */
+.inspect-right-strip {
+  width:      var(--strip-width);
+  min-width:  var(--strip-width);
+  border-left: 1px solid #E2E8F0;
   background: #F8F9FA;
+  display:    flex;
+  flex-direction: column;
+  overflow:   hidden;
+}
+.inspect-right-strip .strip-header {
+  padding:    10px 10px 8px;
+  border-bottom: 1px solid #E2E8F0;
+  background: #F8F9FA;
+  flex-shrink: 0;
+}
+.inspect-right-strip > div:last-child {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex:       1;
+  padding:    6px 8px;
+  display:    flex;
+  flex-direction: column;
+  gap:        8px;
 }
 
-.patch-card {
+/* Vertical patch card */
+.patch-card-v {
   flex:         0 0 auto;
-  width:        108px;
   border:       1px solid #E2E8F0;
   border-radius: 6px;
   overflow:     hidden;
   cursor:       pointer;
-  transition:   border-color 0.15s;
   background:   #fff;
+  transition:   border-color 0.15s;
 }
-.patch-card.highlighted {
-  border-color: var(--accent);
-  box-shadow:   0 0 0 2px var(--accent);
-}
-.patch-card img {
-  width:      108px;
+.patch-card-v:hover         { border-color: var(--accent); }
+.patch-card-v.highlighted   { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.patch-card-v img {
+  width:      100%;
   height:     80px;
   object-fit: cover;
   display:    block;
 }
-.patch-card .patch-meta {
-  padding:    3px 5px;
-  font-size:  0.68rem;
-  color:      #475569;
-  line-height: 1.3;
+.patch-card-v-meta {
+  display:     flex;
+  align-items: center;
+  gap:         5px;
+  padding:     4px 6px;
+  font-size:   0.68rem;
 }
-.patch-badge {
-  font-size:    0.65rem;
-  font-weight:  700;
-  width:        18px;
-  height:       18px;
+
+/* Patch image wrapper — needed for overlay positioning */
+.patch-img-wrap {
+  position:     relative;
+  display:      block;
+  line-height:  0;
+  width:        100%;
+  aspect-ratio: 1 / 1;
+  overflow:     hidden;
+}
+.patch-img-wrap img {
+  width:      100% !important;
+  height:     100% !important;
+  object-fit: cover;
+}
+
+/* Rank number — top-left bubble */
+.patch-rank {
+  position:      absolute;
+  top:           4px;
+  left:          4px;
+  font-size:     0.6rem;
+  font-weight:   700;
+  width:         18px;
+  height:        18px;
   border-radius: 50%;
-  display:      inline-flex;
-  align-items:  center;
+  display:       inline-flex;
+  align-items:   center;
   justify-content: center;
-  color:        #1A1A2E;
+  background:    rgba(0,0,0,0.60);
+  color:         #fff;
+  z-index:       2;
 }
 
-/* ── Heatmap hint bar ────────────────────────────────────────────────────── */
-.heatmap-hint {
-  height:      var(--strip-height);
-  display:     flex;
-  align-items: center;
-  justify-content: center;
-  color:       #64748B;
-  font-size:   0.85rem;
-  border-top:  1px solid #E2E8F0;
-  background:  #F8F9FA;
+/* Attention score — bottom-right colored box */
+.patch-attn {
+  position:      absolute;
+  bottom:        4px;
+  right:         4px;
+  font-size:     0.6rem;
+  font-weight:   700;
+  padding:       1px 5px;
+  border-radius: 3px;
+  z-index:       2;
 }
 
-/* ── Viridis colorbar ────────────────────────────────────────────────────── */
-.colorbar-wrap {
-  display:     flex;
-  align-items: center;
-  gap:         8px;
-  font-size:   0.75rem;
-  color:       #64748B;
+/* Keep old class for compat; not used for layout anymore */
+.patch-badge { display: none; }
+
+/* Recurrence count badge (recurring mode) */
+.patch-recurrence-badge {
+  position:      absolute;
+  bottom:        4px;
+  right:         4px;
+  font-size:     0.6rem;
+  font-weight:   700;
+  padding:       1px 5px;
+  border-radius: 3px;
+  background:    rgba(30,58,95,0.85);
+  color:         #fff;
+  z-index:       2;
 }
-.colorbar {
-  width:  140px;
-  height: 12px;
+
+/* ── WSI marker SVG overlay ──────────────────────────────────────────────── */
+.wsi-marker-svg {
+  position:         absolute;
+  top:              0;
+  left:             0;
+  width:            100%;
+  height:           100%;
+  pointer-events:   none;
+  overflow:         visible;
+  transform-origin: center center;
+}
+.wsi-marker-svg circle { pointer-events: all; }
+
+/* ── By Outcome patch grid ───────────────────────────────────────────────── */
+.byoutcome-patch-grid {
+  display:               grid;
+  grid-template-columns: 1fr 1fr;
+  gap:                   8px;
+}
+.byoutcome-patch-card {
+  border:        1px solid #E2E8F0;
   border-radius: 6px;
-  background: linear-gradient(to right, #440154, #3B528B, #5DC963, #FDE725);
+  overflow:      hidden;
+  background:    #fff;
+}
+.byoutcome-patch-card .patch-img-wrap {
+  width:        100%;
+  aspect-ratio: 1 / 1;
+}
+.byoutcome-patch-meta {
+  padding:   4px 6px;
+  font-size: 0.65rem;
 }
 
-/* ── Utility ─────────────────────────────────────────────────────────────── */
-.cursor-pointer { cursor: pointer; }
-.gap-2          { gap: 0.5rem; }
-.fs-xs          { font-size: 0.75rem; }
+/* ── Zoom + Pan cursors ──────────────────────────────────────────────────── */
+.wsi-canvas           { cursor: grab; }
+.wsi-canvas:active    { cursor: grabbing; }
+.compare-slide-canvas { cursor: grab; }
+.compare-slide-canvas:active { cursor: grabbing; }
+
+/* Smooth zoom transition (overridden to 'none' during drag in JS) */
+.wsi-canvas img,
+.compare-slide-canvas img {
+  transform-origin: center center;
+  user-select: none;
+  pointer-events: none; /* clicks pass through to canvas for drag */
+}
+
+/* Compare-slides zoom controls positioned in canvas */
+.compare-zoom-controls {
+  position:       absolute;
+  top:            8px;
+  right:          8px;
+  display:        flex;
+  flex-direction: column;
+  gap:            3px;
+  z-index:        10;
+}
+.compare-zoom-controls .btn {
+  width:       28px;
+  height:      28px;
+  padding:     0;
+  font-size:   0.9rem;
+  line-height: 1;
+  background:  rgba(255,255,255,0.85);
+  border:      1px solid rgba(0,0,0,0.18);
+}
+
+/* ── Compare Slides layout ───────────────────────────────────────────────── */
+.compare-slides-layout {
+  display:    flex;
+  height:     100%;
+  overflow:   hidden;
+}
+
+.compare-slide-panel {
+  flex:           1;
+  display:        flex;
+  flex-direction: column;
+  overflow:       hidden;
+  min-width:      0;
+}
+
+.compare-slide-header {
+  display:         flex;
+  align-items:     center;
+  gap:             0.5rem;
+  padding:         0.55rem 1rem;
+  background:      #fff;
+  border-bottom:   1px solid #E2E8F0;
+  flex-shrink:     0;
+}
+
+.compare-slot-label {
+  font-size:      0.62rem;
+  font-weight:    700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color:          #94A3B8;
+  white-space:    nowrap;
+}
+
+.compare-slide-canvas {
+  flex:       1;
+  background: #0F172A;
+  overflow:   hidden;
+  display:    flex;
+  align-items: center;
+  justify-content: center;
+  position:   relative;
+  min-height: 0;
+}
+
+.compare-wsi-img {
+  max-width:  100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.compare-empty {
+  display:         flex;
+  flex-direction:  column;
+  align-items:     center;
+  justify-content: center;
+  color:           #475569;
+  gap:             0.5rem;
+  height:          100%;
+}
+
+.compare-slide-info {
+  background:  #fff;
+  border-top:  1px solid #E2E8F0;
+  flex-shrink: 0;
+  overflow-x:  auto;
+}
+
+.compare-info-row {
+  display:  flex;
+  gap:      0;
+  padding:  0.5rem 1rem;
+  flex-wrap: wrap;
+}
+
+.compare-info-cell {
+  flex:       0 0 auto;
+  padding:    0 1rem 0 0;
+  min-width:  80px;
+}
+
+.compare-divider {
+  width:      1px;
+  background: #E2E8F0;
+  flex-shrink: 0;
+}
+
+/* ── By Outcome layout ───────────────────────────────────────────────────── */
+.byoutcome-layout {
+  display:    flex;
+  height:     100%;
+  overflow:   hidden;
+  gap:        0;
+}
+
+.byoutcome-col {
+  flex:           1;
+  display:        flex;
+  flex-direction: column;
+  overflow:       hidden;
+  min-width:      0;
+}
+
+.byoutcome-col-header {
+  padding:       0.6rem 1rem;
+  background:    #fff;
+  border-bottom: 1px solid #E2E8F0;
+  flex-shrink:   0;
+  font-weight:   700;
+  font-size:     0.85rem;
+}
+
+.byoutcome-col-grid {
+  flex:       1;
+  overflow-y: auto;
+  padding:    0.75rem;
+}
+
+.byoutcome-divider {
+  width:      1px;
+  background: #E2E8F0;
+  flex-shrink: 0;
+}
+
+/* ── Summary: total tile uses --accent via CSS (no re-render needed) ─────── */
+.bslib-value-box.total-tile {
+  background-color: var(--accent) !important;
+}
+.bslib-value-box.total-tile .value-box-title,
+.bslib-value-box.total-tile .value-box-value,
+.bslib-value-box.total-tile p {
+  color: #fff !important;
+}
+
+/* ── Summary: favorable / adverse tile colors ────────────────────────────── */
+.favorable-tile { background-color: var(--favorable) !important; }
+.adverse-tile   { background-color: var(--adverse)   !important; }
+.favorable-tile .value-box-title,
+.favorable-tile .value-box-value,
+.favorable-tile p,
+.adverse-tile .value-box-title,
+.adverse-tile .value-box-value,
+.adverse-tile p { color: #fff !important; }
+
+/* ── Colorbar sidebar ────────────────────────────────────────────────────── */
+.colorbar-sidebar {
+  display:        flex;
+  flex-direction: row;
+  background:     #0F172A;
+  border-left:    1px solid rgba(255,255,255,0.08);
+  transition:     width 0.2s ease;
+  flex-shrink:    0;
+  overflow:       hidden;
+  width:          68px;
+  position:       relative;
+}
+
+.colorbar-sidebar.collapsed {
+  width: 22px;
+}
+
+.colorbar-sidebar.collapsed .colorbar-body { display: none; }
+
+.colorbar-toggle {
+  width:           22px;
+  min-width:       22px;
+  background:      transparent;
+  border:          none;
+  color:           #64748B;
+  cursor:          pointer;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  font-size:       0.65rem;
+  padding:         0;
+  flex-shrink:     0;
+}
+.colorbar-toggle:hover { color: #94A3B8; }
+
+.colorbar-sidebar.collapsed .colorbar-toggle { font-size: 0.65rem; }
+
+.colorbar-body {
+  flex:           1;
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  padding:        10px 4px;
+  gap:            4px;
+  min-width:      0;
+}
+
+.colorbar-scale-label {
+  font-size:   0.58rem;
+  color:       #94A3B8;
+  text-align:  center;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.colorbar-bar-img {
+  flex:        1;
+  width:       28px;
+  object-fit:  contain;
+  min-height:  0;
+  max-height:  100%;
+}
