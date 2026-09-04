@@ -1,0 +1,9 @@
+slide_id,dataset,outcome,age,grade,site,max_attention,mean_attention,n_patches
+TCGA-QQ-A8VF-01Z,TCGA,Adverse,58,3,Femur,0.921,0.312,847
+TCGA-DX-A23R-01Z,TCGA,Favorable,42,2,Tibia,0.734,0.198,612
+TCGA-HZ-7288-01Z,TCGA,Adverse,67,3,Pelvis,0.887,0.341,1023
+TCGA-MO-A47R-01Z,TCGA,Adverse,71,3,Humerus,0.856,0.289,934
+TCGA-DX-A1L2-01Z,TCGA,Favorable,39,1,Femur,0.612,0.154,541
+SPORE-001,SPORE,Adverse,55,3,Femur,0.903,0.328,778
+SPORE-002,SPORE,Favorable,48,2,Tibia,0.701,0.187,623
+SPORE-003,SPORE,Adverse,63,3,Pelvis,0.865,0.311,891

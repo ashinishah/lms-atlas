@@ -1,0 +1,231 @@
+/* custom.css — LMS Atlas
+   Accent color is controlled by --accent CSS variable.
+   Swapped at runtime via shinyjs::runjs() in app.R server when dataset changes.
+   Default: TCGA teal. SPORE gold is #D97706.
+*/
+
+/* ── Root tokens ─────────────────────────────────────────────────────────── */
+:root {
+  --accent:          #0D9488;   /* TCGA teal default */
+  --accent-light:    #CCFBF1;   /* tint for hover states */
+  --accent-dark:     #0F766E;   /* shade for active states */
+
+  --card-radius:     10px;
+  --strip-height:    148px;
+  --sidebar-width:   216px;
+}
+
+/* ── Accent-colored elements ─────────────────────────────────────────────── */
+.btn-accent {
+  background-color: var(--accent);
+  border-color:     var(--accent);
+  color:            #fff;
+}
+.btn-accent:hover {
+  background-color: var(--accent-dark);
+  border-color:     var(--accent-dark);
+  color:            #fff;
+}
+
+.text-accent   { color: var(--accent) !important; }
+.border-accent { border-color: var(--accent) !important; }
+.bg-accent     { background-color: var(--accent) !important; }
+
+/* Dataset toggle in navbar */
+.dataset-toggle .btn-check:checked + .btn {
+  background-color: var(--accent);
+  border-color:     var(--accent);
+  color:            #fff;
+}
+
+/* Active mode bar button in Inspect */
+.mode-bar .btn.active,
+.mode-bar .btn:focus {
+  background-color: var(--accent);
+  border-color:     var(--accent);
+  color:            #fff;
+  box-shadow:       none;
+}
+
+/* ── Gallery card grid ───────────────────────────────────────────────────── */
+.slide-card {
+  border-radius:  var(--card-radius);
+  overflow:       hidden;
+  cursor:         pointer;
+  transition:     box-shadow 0.15s ease, transform 0.15s ease;
+  border:         1px solid #E2E8F0;
+}
+.slide-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transform:  translateY(-2px);
+  border-color: var(--accent);
+}
+.slide-card img {
+  width:       100%;
+  height:      140px;
+  object-fit:  cover;
+}
+.slide-card .card-body {
+  padding: 0.6rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+/* ── Inspect layout ──────────────────────────────────────────────────────── */
+.inspect-sidebar {
+  width:      var(--sidebar-width);
+  min-width:  var(--sidebar-width);
+  max-width:  var(--sidebar-width);
+  overflow-y: auto;
+  padding:    1rem;
+  border-right: 1px solid #E2E8F0;
+  font-size:  0.85rem;
+}
+.inspect-sidebar .slide-label {
+  font-size:   0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color:       #64748B;
+}
+.inspect-sidebar .slide-value {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.inspect-sidebar .mode-info {
+  color:       var(--accent);
+  font-weight: 600;
+  font-size:   0.8rem;
+}
+
+/* ── WSI canvas area ─────────────────────────────────────────────────────── */
+.wsi-canvas {
+  position:   relative;
+  flex:       1;
+  overflow:   hidden;
+  background: #0F172A;
+}
+.wsi-canvas img.wsi-image {
+  max-width:  100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Minimap (bottom-left of WSI) */
+.minimap {
+  position:      absolute;
+  bottom:        12px;
+  left:          12px;
+  width:         120px;
+  border:        2px solid rgba(255,255,255,0.4);
+  border-radius: 4px;
+  overflow:      hidden;
+}
+.minimap img { width: 100%; display: block; }
+.minimap .viewport-rect {
+  position:      absolute;
+  border:        2px solid #0D9488;
+  pointer-events: none;
+}
+
+/* Zoom controls (bottom-right of WSI) */
+.zoom-controls {
+  position: absolute;
+  bottom:   12px;
+  right:    12px;
+  display:  flex;
+  flex-direction: column;
+  gap:      4px;
+}
+.zoom-controls .btn {
+  width:   32px;
+  height:  32px;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+  background: rgba(255,255,255,0.85);
+  border:  1px solid rgba(0,0,0,0.2);
+}
+
+/* ── Patch strip ─────────────────────────────────────────────────────────── */
+.patch-strip-wrapper {
+  height:     var(--strip-height);
+  min-height: var(--strip-height);
+  max-height: var(--strip-height);
+  overflow-x: auto;
+  overflow-y: hidden;
+  display:    flex;
+  align-items: center;
+  gap:        8px;
+  padding:    6px 10px;
+  border-top: 1px solid #E2E8F0;
+  background: #F8F9FA;
+}
+
+.patch-card {
+  flex:         0 0 auto;
+  width:        108px;
+  border:       1px solid #E2E8F0;
+  border-radius: 6px;
+  overflow:     hidden;
+  cursor:       pointer;
+  transition:   border-color 0.15s;
+  background:   #fff;
+}
+.patch-card.highlighted {
+  border-color: var(--accent);
+  box-shadow:   0 0 0 2px var(--accent);
+}
+.patch-card img {
+  width:      108px;
+  height:     80px;
+  object-fit: cover;
+  display:    block;
+}
+.patch-card .patch-meta {
+  padding:    3px 5px;
+  font-size:  0.68rem;
+  color:      #475569;
+  line-height: 1.3;
+}
+.patch-badge {
+  font-size:    0.65rem;
+  font-weight:  700;
+  width:        18px;
+  height:       18px;
+  border-radius: 50%;
+  display:      inline-flex;
+  align-items:  center;
+  justify-content: center;
+  color:        #1A1A2E;
+}
+
+/* ── Heatmap hint bar ────────────────────────────────────────────────────── */
+.heatmap-hint {
+  height:      var(--strip-height);
+  display:     flex;
+  align-items: center;
+  justify-content: center;
+  color:       #64748B;
+  font-size:   0.85rem;
+  border-top:  1px solid #E2E8F0;
+  background:  #F8F9FA;
+}
+
+/* ── Viridis colorbar ────────────────────────────────────────────────────── */
+.colorbar-wrap {
+  display:     flex;
+  align-items: center;
+  gap:         8px;
+  font-size:   0.75rem;
+  color:       #64748B;
+}
+.colorbar {
+  width:  140px;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(to right, #440154, #3B528B, #5DC963, #FDE725);
+}
+
+/* ── Utility ─────────────────────────────────────────────────────────────── */
+.cursor-pointer { cursor: pointer; }
+.gap-2          { gap: 0.5rem; }
+.fs-xs          { font-size: 0.75rem; }
