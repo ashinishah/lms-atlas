@@ -2,7 +2,7 @@
 # Dataset toggle in header is grayed out on this tab (both datasets shown simultaneously)
 
 ui_compare <- function() {
-  nav_panel_body(
+  div(
     class = "p-4",
     h4("TCGA vs. SPORE", class = "mb-1"),
     p("Side-by-side cross-dataset comparison. Dataset toggle is disabled here.",

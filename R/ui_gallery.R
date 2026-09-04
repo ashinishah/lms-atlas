@@ -1,7 +1,7 @@
 # ui_gallery.R — Gallery tab UI
 
 ui_gallery <- function() {
-  nav_panel_body(
+  div(
     class = "p-3",
     # ── Controls row ──────────────────────────────────────────────────────────
     div(

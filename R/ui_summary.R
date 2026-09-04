@@ -1,7 +1,7 @@
 # ui_summary.R — Summary tab UI
 
 ui_summary <- function() {
-  nav_panel_body(
+  div(
     class = "p-4",
     h4("Summary", class = "mb-3"),
     p("Dataset-level statistics, outcome distribution, and model performance metrics.",

@@ -2,7 +2,7 @@
 # Two-column layout: Favorable (left) vs Adverse (right)
 
 ui_byoutcome <- function() {
-  nav_panel_body(
+  div(
     class = "p-4",
     h4("By Outcome", class = "mb-3"),
     p("Slides grouped by prognosis for the selected dataset.", class = "text-muted mb-3"),

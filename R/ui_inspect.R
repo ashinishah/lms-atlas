@@ -2,7 +2,7 @@
 # Single-slide deep-dive. Four sub-modes: plain | heatmap | recurring | topk.
 
 ui_inspect <- function() {
-  nav_panel_body(
+  div(
     style = "padding: 0; height: calc(100vh - 56px);",  # fill under navbar
 
     div(

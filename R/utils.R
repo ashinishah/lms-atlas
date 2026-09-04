@@ -2,6 +2,11 @@
 # All image URL construction goes through these functions.
 # Never hardcode paths elsewhere in the app.
 
+# ── Bootstrap column shorthands ───────────────────────────────────────────────
+col_4  <- function(...) column(4,  ...)
+col_6  <- function(...) column(6,  ...)
+col_12 <- function(...) column(12, ...)
+
 # ── Image base path ────────────────────────────────────────────────────────────
 # Set LMS_IMAGE_BASE in .Renviron (local) or Connect Cloud env config (deploy).
 # Falls back to data/images for local dev if env var is not set.
