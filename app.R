@@ -5,8 +5,9 @@ library(shinyjs)
 # All R/ files are auto-sourced by Shiny — no source() calls needed.
 
 # Expose image directories to the browser
-addResourcePath("lms-images",   image_base())
-addResourcePath("lms-patches",  patches_base())
+addResourcePath("lms-images",    image_base())     # thumbnails
+addResourcePath("lms-heatmaps",  heatmaps_base())  # tissue50_mask50 heatmaps
+addResourcePath("lms-patches",   patches_base())   # tissue50_mask50 patches
 
 # ── Sidebar nav button ─────────────────────────────────────────────────────────
 nav_btn <- function(id, label, fa) {
@@ -24,6 +25,7 @@ ui <- tagList(
   useShinyjs(),
   tags$head(
     tags$link(rel = "stylesheet", href = "custom.css"),
+    tags$link(rel = "stylesheet", href = "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;800&display=swap"),
     tags$script(src = "app.js")
   ),
   bslib::page_fillable(
@@ -45,14 +47,24 @@ ui <- tagList(
         class = "lms-global-header",
         div(
           class = "lms-header-brand",
-          div(class = "lms-brand-name", "LMS Atlas"),
-          div(class = "lms-brand-sub",  "Leiomyosarcoma · Attention Viz")
+          tags$button(
+            class   = "lms-brand-btn",
+            onclick = "lmsNavigate('summary');",
+            tags$svg(
+              id      = "lms-brand-globe",
+              width   = "30",
+              height  = "30",
+              viewBox = "0 0 100 100",
+              style   = "flex-shrink:0;"
+            ),
+            HTML('<span class="lms-brand-wm"><span class="lms-brand-lms">LMS</span><span class="lms-brand-atlas">ATLAS</span></span>')
+          )
         ),
         div(
           class = "lms-header-content",
           div(
-            div(class = "lms-header-title", "LMS Sarcoma · Whole-Slide Attention Visualization"),
-            div(class = "lms-header-sub",   "TCGA-SARC & SPORE · ABMIL model · 5 training seeds")
+            div(class = "lms-header-title", "Leiomyosarcoma Whole-Slide Image Atlas"),
+            div(class = "lms-header-sub",   "H&E WSIs · UNI feature extraction · CLAM/ABMIL attention analysis")
           )
         )
       ),
@@ -67,7 +79,7 @@ ui <- tagList(
           tags$nav(
             class = "lms-nav",
             div(class = "lms-nav-section-label", "EXPLORE"),
-            nav_btn("summary",        "Summary",          "chart-bar"),
+            nav_btn("summary",        "Dashboard",         "chart-bar"),
             nav_btn("gallery",        "Gallery",           "th-large"),
             nav_btn("inspect",        "Inspect",           "search"),
             div(class = "lms-nav-section-label", "COMPARE"),
@@ -110,9 +122,13 @@ server <- function(input, output, session) {
     selected_slide_id = NULL,
     inspect_mode      = "plain",
     topk_k            = 10L,
+    recurring_k       = 30L,
     highlighted_patch = NULL,
     compare_slide_a   = NULL,
-    compare_slide_b   = NULL
+    compare_slide_b   = NULL,
+    compare_outcome   = "Favorable",
+    gallery_mode      = "plain",
+    gallery_k         = 10L
   )
 
   # ── Metadata ───────────────────────────────────────────────────────────────
@@ -122,20 +138,57 @@ server <- function(input, output, session) {
 
   # ── Accent color ───────────────────────────────────────────────────────────
   accent <- reactive({
-    if (state$selected_dataset == "TCGA") "#0D9488" else "#D97706"
+    if (state$selected_dataset == "TCGA") "#0D9488" else "#C9A227"
   })
 
   observe({
-    shinyjs::runjs(sprintf(
-      "document.documentElement.style.setProperty('--accent','%s');", accent()
-    ))
+    ac <- accent()
+    shinyjs::runjs(sprintf(paste0(
+      "document.documentElement.style.setProperty('--accent','%s');",
+      "var h=document.querySelector('.lms-global-header');",
+      "if(h)h.style.backgroundColor='%s';"
+    ), ac, ac))
   })
 
   # ── Global view mode bar ───────────────────────────────────────────────────
-  # Hidden on summary and gallery; shown on all other pages.
   output$view_mode_bar_ui <- renderUI({
     tab <- input$active_tab %||% "summary"
-    if (tab %in% c("summary", "gallery")) return(NULL)
+    if (tab == "summary") return(NULL)
+
+    if (tab == "gallery") {
+      gmode <- state$gallery_mode %||% "plain"
+      gk    <- state$gallery_k    %||% 10L
+      mk_gbtn <- function(m, label) {
+        cls <- if (m == gmode) "btn btn-sm mode-btn mode-btn-active" else "btn btn-sm mode-btn"
+        tags$button(class = cls,
+                    onclick = sprintf("lmsGalleryMode('%s')", m),
+                    label)
+      }
+      return(tagList(
+        div(class = "view-mode-bar",
+            mk_gbtn("plain",     "Raw WSI"),
+            mk_gbtn("heatmap",   "Heatmap"),
+            mk_gbtn("recurring", "Recurring"),
+            mk_gbtn("topk",      "Top K")
+        ),
+        if (gmode %in% c("topk", "recurring")) {
+          div(
+            class = "d-flex align-items-center gap-1 ms-2",
+            span("K =", class = "text-muted fs-xs"),
+            div(
+              class = "btn-group btn-group-sm",
+              lapply(c(5L, 10L, 20L, 30L), function(k) {
+                tags$button(
+                  class   = if (identical(gk, k)) "btn btn-accent btn-sm" else "btn btn-outline-secondary btn-sm",
+                  onclick = sprintf("lmsGalleryK(%d)", k),
+                  as.character(k)
+                )
+              })
+            )
+          )
+        }
+      ))
+    }
 
     mode  <- state$inspect_mode
     mk_btn <- function(id, label, m) {
@@ -149,10 +202,10 @@ server <- function(input, output, session) {
     tagList(
       div(
         class = "view-mode-bar",
-        mk_btn("plain",     "Plain WSI",         "plain"),
-        mk_btn("heatmap",   "Dense Heatmap",      "heatmap"),
-        mk_btn("recurring", "Recurring Patches",  "recurring"),
-        mk_btn("topk",      "Top K Patches",      "topk")
+        mk_btn("plain",     "Raw WSI",  "plain"),
+        mk_btn("heatmap",   "Heatmap",    "heatmap"),
+        mk_btn("recurring", "Recurring",  "recurring"),
+        mk_btn("topk",      "Top K",      "topk")
       ),
       if (mode == "topk") {
         div(
@@ -169,6 +222,21 @@ server <- function(input, output, session) {
             })
           )
         )
+      } else if (mode == "recurring") {
+        div(
+          class = "d-flex align-items-center gap-1 ms-2",
+          span("Show top", class = "text-muted fs-xs"),
+          div(
+            class = "btn-group btn-group-sm",
+            lapply(c(5L, 10L, 20L, 30L), function(k) {
+              tags$button(
+                class   = if (identical(state$recurring_k, k)) "btn btn-accent btn-sm" else "btn btn-outline-secondary btn-sm",
+                onclick = sprintf("Shiny.setInputValue('global_recurring_k',%d,{priority:'event'});", k),
+                as.character(k)
+              )
+            })
+          )
+        )
       }
     )
   })
@@ -179,6 +247,22 @@ server <- function(input, output, session) {
 
   observeEvent(input$global_topk_k, {
     state$topk_k <- as.integer(input$global_topk_k)
+  })
+
+  observeEvent(input$global_recurring_k, {
+    state$recurring_k <- as.integer(input$global_recurring_k)
+  })
+
+  observeEvent(input$gallery_mode, {
+    state$gallery_mode <- input$gallery_mode
+  })
+
+  observeEvent(input$gallery_k, {
+    state$gallery_k <- as.integer(input$gallery_k)
+  })
+
+  observeEvent(input$compare_outcome_toggle, {
+    state$compare_outcome <- input$compare_outcome_toggle
   })
 
   # ── Dataset switcher ───────────────────────────────────────────────────────

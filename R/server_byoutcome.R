@@ -3,10 +3,13 @@
 server_byoutcome <- function(input, output, session, state, metadata, accent) {
 
   # ── Patch metadata ─────────────────────────────────────────────────────────
-  pm_path <- file.path(globus_base(), "patch_metadata.csv")
+  pm_path <- patch_metadata_path()
   all_patches <- if (file.exists(pm_path)) {
     readr::read_csv(pm_path, show_col_types = FALSE)
   } else NULL
+
+  # True level-0 extents from SVS file dimensions (slide_dimensions.csv).
+  slide_ext <- slide_extents()
 
   # ── Filtered slides ────────────────────────────────────────────────────────
   meta_filtered <- reactive({ filter_dataset(metadata(), state$selected_dataset) })
@@ -37,7 +40,7 @@ server_byoutcome <- function(input, output, session, state, metadata, accent) {
       n <- min(state$topk_k, nrow(patches))
       span(sprintf("top %d patches", n), class = "text-muted fs-xs")
     } else {
-      n <- min(30L, sum(patches$n_seeds_top >= 3))
+      n <- min(state$recurring_k, sum(patches$n_seeds_top >= 3))
       span(sprintf("top %d recurring patches", n), class = "text-muted fs-xs")
     }
   }
@@ -63,11 +66,13 @@ server_byoutcome <- function(input, output, session, state, metadata, accent) {
           tags$img(
             src     = img_src,
             alt     = sid,
+            loading = "lazy",
             onerror = "this.src='https://placehold.co/300x140/e2e8f0/94a3b8?text=No+image';"
           ),
           div(
             class = "card-body",
-            div(class = "fw-semibold text-truncate fs-xs", short_id(sid))
+            div(class = "fw-semibold text-truncate flex-grow-1 fs-xs", short_id(sid)),
+            outcome_badge(row$outcome)
           )
         )
       )
@@ -89,49 +94,61 @@ server_byoutcome <- function(input, output, session, state, metadata, accent) {
       k  <- state$topk_k
       df <- df[seq_len(min(k, nrow(df))), ]
     } else {
-      # Recurring: filter to n_seeds_top >= 3, sort by recurrence_count desc
       df <- df[df$n_seeds_top >= 3, ]
       df <- df[order(-df$recurrence_count, -df$attention_mean), ]
-      df <- df[seq_len(min(30L, nrow(df))), ]
+      df <- df[seq_len(min(state$recurring_k, nrow(df))), ]
     }
 
     if (nrow(df) == 0)
       return(div(class = "text-muted p-3 fs-xs", "No patches found."))
 
+    ex <- slide_ext
     cards <- lapply(seq_len(nrow(df)), function(i) {
       row      <- df[i, ]
       sid      <- row$slide_id
       patch_id <- row$patch_id
       score    <- row$attention_mean
+      cx       <- as.integer(row$x_coord) + 128L
+      cy       <- as.integer(row$y_coord) + 128L
+      ew <- if (!is.null(ex) && sid %in% names(ex$x)) as.integer(ex$x[[sid]]) else 40000L
+      eh <- if (!is.null(ex) && sid %in% names(ex$y)) as.integer(ex$y[[sid]]) else 40000L
+
       bg_color  <- attention_marker_color(score)
       txt_color <- attention_marker_text(score)
 
       div(
-        class = "byoutcome-patch-card",
+        class   = "byoutcome-patch-card",
+        onclick = sprintf(
+          "Shiny.setInputValue('byoutcome_patch_clicked','%s|%s|%d|%d|%d|%d',{priority:'event'});",
+          sid, patch_id, cx, cy, ew, eh
+        ),
         div(
           class = "patch-img-wrap",
           tags$img(
             src     = patch_url(sid, patch_id),
             alt     = patch_id,
+            loading = "lazy",
             onerror = "this.src='https://placehold.co/134x134/f8f9fa/94a3b8?text=patch';"
-          ),
-          if (mode == "recurring") {
-            tags$span(
-              class = "patch-recurrence-badge",
-              paste0("×", row$recurrence_count)
-            )
-          } else {
-            tags$span(
-              class = "patch-attn",
-              style = sprintf("background:%s; color:%s;", bg_color, txt_color),
-              sprintf("%.2f", score)
-            )
-          }
+          )
         ),
         div(
           class = "byoutcome-patch-meta",
-          div(class = "fw-semibold text-truncate", short_id(sid)),
-          div(class = "text-muted text-truncate", patch_id)
+          div(
+            class = "byoutcome-patch-text",
+            div(class = "fw-semibold text-truncate", short_id(sid)),
+            div(class = "text-muted text-truncate", sub(".*-", "", patch_id))
+          ),
+          if (mode == "recurring") {
+            tags$span(class = "patch-meta-badge",
+                      style = sprintf("background:%s; color:%s;",
+                                      recurrence_marker_color(row$recurrence_count),
+                                      recurrence_marker_text(row$recurrence_count)),
+                      paste0("×", row$recurrence_count))
+          } else {
+            tags$span(class = "patch-meta-badge",
+                      style = sprintf("background:%s; color:%s;", bg_color, txt_color),
+                      sprintf("%.2f", score))
+          }
         )
       )
     })
@@ -158,8 +175,30 @@ server_byoutcome <- function(input, output, session, state, metadata, accent) {
     }
   })
 
+  # ── Slide click → Inspect ─────────────────────────────────────────────────
   observeEvent(input$byoutcome_selected_slide, {
     state$selected_slide_id <- input$byoutcome_selected_slide
     shinyjs::runjs("lmsNavigate('inspect');")
+  })
+
+  # ── Patch click → Inspect + zoom ──────────────────────────────────────────
+  observeEvent(input$byoutcome_patch_clicked, {
+    parts <- strsplit(input$byoutcome_patch_clicked, "\\|")[[1]]
+    if (length(parts) < 6) return()
+    sid <- parts[1]
+    pid <- parts[2]
+    cx  <- as.integer(parts[3])
+    cy  <- as.integer(parts[4])
+    ew  <- as.integer(parts[5])
+    eh  <- as.integer(parts[6])
+
+    state$selected_slide_id <- sid
+    state$highlighted_patch <- pid
+
+    shinyjs::runjs(sprintf(paste0(
+      "lmsNavigate('inspect');",
+      "lmsZoomAfterLoad('wsi_canvas',%d,%d,%d,%d);",
+      "setTimeout(function(){lmsScrollToPatch('%s');},600);"
+    ), cx, cy, ew, eh, pid))
   })
 }

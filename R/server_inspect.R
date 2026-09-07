@@ -3,12 +3,21 @@
 server_inspect <- function(input, output, session, state, metadata, accent) {
 
   # ── Load patch metadata once ───────────────────────────────────────────────
-  pm_path <- file.path(globus_base(), "patch_metadata.csv")
+  pm_path <- patch_metadata_path()
   all_patches <- if (file.exists(pm_path)) {
     readr::read_csv(pm_path, show_col_types = FALSE)
   } else {
     NULL
   }
+
+  # True level-0 extents from SVS file dimensions (slide_dimensions.csv).
+  slide_ext <- slide_extents()
+
+  # ── Ordered slide list for the current dataset (for prev/next + picker) ────
+  slide_list <- reactive({
+    df <- filter_dataset(metadata(), state$selected_dataset)
+    df[order(df$slide_id), ]
+  })
 
   # ── Current slide row ──────────────────────────────────────────────────────
   current_slide <- reactive({
@@ -37,11 +46,64 @@ server_inspect <- function(input, output, session, state, metadata, accent) {
     } else if (mode == "recurring") {
       rec <- df[df$n_seeds_top >= 3, ]
       rec <- rec[order(-rec$recurrence_count, -rec$attention_mean), ]
-      rec[seq_len(min(30L, nrow(rec))), ]
+      rec[seq_len(min(state$recurring_k, nrow(rec))), ]
     } else {
       df
     }
   })
+
+  # ── Nav: label (X / N) ─────────────────────────────────────────────────────
+  output$inspect_nav_label <- renderUI({
+    df  <- slide_list()
+    sid <- state$selected_slide_id
+    if (is.null(sid)) return(span("— / —"))
+    idx <- which(df$slide_id == sid)
+    if (length(idx) == 0) return(span("— / —"))
+    span(sprintf("%d / %d", idx, nrow(df)))
+  })
+
+  # ── Nav: slide picker dropdown ────────────────────────────────────────────
+  output$inspect_slide_picker <- renderUI({
+    df <- slide_list()
+    choices <- setNames(
+      df$slide_id,
+      paste0(short_id(df$slide_id), " · ", df$outcome)
+    )
+    selectInput(
+      "inspect_slide_select", NULL,
+      choices  = choices,
+      selected = state$selected_slide_id,
+      width    = "100%"
+    )
+  })
+
+  # ── Nav: prev / next ───────────────────────────────────────────────────────
+  observeEvent(input$inspect_prev_click, {
+    df  <- slide_list()
+    idx <- which(df$slide_id == state$selected_slide_id)
+    if (length(idx) > 0 && idx > 1L) {
+      state$selected_slide_id <- df$slide_id[idx - 1L]
+      state$highlighted_patch <- NULL
+    }
+  })
+
+  observeEvent(input$inspect_next_click, {
+    df  <- slide_list()
+    idx <- which(df$slide_id == state$selected_slide_id)
+    if (length(idx) > 0 && idx < nrow(df)) {
+      state$selected_slide_id <- df$slide_id[idx + 1L]
+      state$highlighted_patch <- NULL
+    }
+  })
+
+  # Break circular update: only apply if the dropdown chose a *different* slide
+  observeEvent(input$inspect_slide_select, {
+    req(input$inspect_slide_select, nchar(input$inspect_slide_select) > 0)
+    if (!identical(input$inspect_slide_select, state$selected_slide_id)) {
+      state$selected_slide_id <- input$inspect_slide_select
+      state$highlighted_patch <- NULL
+    }
+  }, ignoreInit = TRUE)
 
   # Reset zoom + pan when slide changes
   observeEvent(state$selected_slide_id, {
@@ -125,12 +187,16 @@ server_inspect <- function(input, output, session, state, metadata, accent) {
     df_mode <- mode_patches()
     if (is.null(df_mode) || nrow(df_mode) == 0) return(NULL)
 
-    # Use all patches for extent so scaling matches full slide
-    df_all <- slide_patches()
-    slide_ext_x <- if (!is.null(df_all) && nrow(df_all) > 0)
-      max(df_all$x_coord + 256L) else max(df_mode$x_coord + 256L)
-    slide_ext_y <- if (!is.null(df_all) && nrow(df_all) > 0)
-      max(df_all$y_coord + 256L) else max(df_mode$y_coord + 256L)
+    # True level-0 extents from SVS file dimensions (slide_dimensions.csv).
+    sid <- state$selected_slide_id
+    slide_ext_x <- if (!is.null(slide_ext) && sid %in% names(slide_ext$x))
+      as.integer(slide_ext$x[[sid]])
+    else
+      max(df_mode$x_coord + 256L)
+    slide_ext_y <- if (!is.null(slide_ext) && sid %in% names(slide_ext$y))
+      as.integer(slide_ext$y[[sid]])
+    else
+      max(df_mode$y_coord + 256L)
 
     r_base <- max(200L, round(min(slide_ext_x, slide_ext_y) / 60))
 
@@ -140,8 +206,14 @@ server_inspect <- function(input, output, session, state, metadata, accent) {
       cy   <- row$y_coord + 128L
       pid  <- row$patch_id
       attn <- row$attention_mean
-      bg   <- attention_marker_color(attn)
-      txt  <- attention_marker_text(attn)
+      bg   <- if (mode == "recurring")
+                recurrence_marker_color(row$recurrence_count)
+              else
+                attention_marker_color(attn)
+      txt  <- if (mode == "recurring")
+                recurrence_marker_text(row$recurrence_count)
+              else
+                attention_marker_text(attn)
       highlighted <- identical(state$highlighted_patch, pid)
       r    <- if (highlighted) round(r_base * 1.5) else r_base
       fsz  <- round(r * 1.05)
@@ -156,7 +228,8 @@ server_inspect <- function(input, output, session, state, metadata, accent) {
           `stroke-width` = round(r / 6),
           style          = "cursor: pointer;",
           onclick        = sprintf(
-            "Shiny.setInputValue('inspect_patch_clicked','%s',{priority:'event'});", pid
+            "Shiny.setInputValue('inspect_patch_clicked','%s',{priority:'event'});lmsZoomToSvgPoint('wsi_canvas',%d,%d,%d,%d);",
+            pid, cx, cy, slide_ext_x, slide_ext_y
           )
         ),
         tags$text(
@@ -200,11 +273,7 @@ server_inspect <- function(input, output, session, state, metadata, accent) {
       div(
         class = "colorbar-body",
         div("High", class = "colorbar-scale-label"),
-        tags$img(
-          src   = "lms-images/heatmaps/attention_colorbar.png",
-          class = "colorbar-bar-img",
-          alt   = "Attention scale"
-        ),
+        div(class = "colorbar-bar-gradient"),
         div("Low", class = "colorbar-scale-label")
       )
     )
@@ -218,7 +287,7 @@ server_inspect <- function(input, output, session, state, metadata, accent) {
     label <- if (mode == "topk") {
       sprintf("Top %d patches", state$topk_k)
     } else {
-      "Recurring patches"
+      sprintf("Top %d recurring", state$recurring_k)
     }
 
     div(
@@ -232,7 +301,7 @@ server_inspect <- function(input, output, session, state, metadata, accent) {
     )
   })
 
-  # ── Patch cards with real data ─────────────────────────────────────────────
+  # ── Patch cards in right strip ─────────────────────────────────────────────
   output$right_patch_cards <- renderUI({
     req(state$selected_slide_id)
     req(state$inspect_mode %in% c("recurring", "topk"))
@@ -245,10 +314,23 @@ server_inspect <- function(input, output, session, state, metadata, accent) {
       return(div(class = "text-muted p-3 fs-xs", "No patch data available."))
     }
 
+    # True level-0 extents from SVS file dimensions (slide_dimensions.csv).
+    sid <- state$selected_slide_id
+    slide_ext_x <- if (!is.null(slide_ext) && sid %in% names(slide_ext$x))
+      as.integer(slide_ext$x[[sid]])
+    else
+      max(df$x_coord + 256L)
+    slide_ext_y <- if (!is.null(slide_ext) && sid %in% names(slide_ext$y))
+      as.integer(slide_ext$y[[sid]])
+    else
+      max(df$y_coord + 256L)
+
     lapply(seq_len(nrow(df)), function(i) {
       row        <- df[i, ]
       score      <- row$attention_mean
       patch_id   <- row$patch_id
+      cx         <- row$x_coord + 128L
+      cy         <- row$y_coord + 128L
       bg_color   <- attention_marker_color(score)
       txt_color  <- attention_marker_text(score)
       highlighted <- identical(state$highlighted_patch, patch_id)
@@ -257,7 +339,8 @@ server_inspect <- function(input, output, session, state, metadata, accent) {
         class          = paste0("patch-card-v", if (highlighted) " highlighted" else ""),
         `data-patch-id`= patch_id,
         onclick        = sprintf(
-          "Shiny.setInputValue('inspect_patch_clicked','%s',{priority:'event'});", patch_id
+          "Shiny.setInputValue('inspect_patch_clicked','%s',{priority:'event'});lmsZoomToSvgPoint('wsi_canvas',%d,%d,%d,%d);",
+          patch_id, cx, cy, slide_ext_x, slide_ext_y
         ),
         div(
           class = "patch-img-wrap",
@@ -270,6 +353,9 @@ server_inspect <- function(input, output, session, state, metadata, accent) {
           if (mode == "recurring") {
             tags$span(
               class = "patch-recurrence-badge",
+              style = sprintf("background:%s; color:%s;",
+                              recurrence_marker_color(row$recurrence_count),
+                              recurrence_marker_text(row$recurrence_count)),
               paste0("×", row$recurrence_count)
             )
           } else {

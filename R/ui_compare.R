@@ -8,6 +8,13 @@ ui_compare <- function() {
     p("Cross-dataset overview — dataset toggle is disabled here. Click any slide to inspect it.",
       class = "text-muted mb-3"),
 
+    # ── Outcome toggle ─────────────────────────────────────────────────────────
+    div(
+      class = "d-flex align-items-center gap-3 mb-3",
+      span("Show:", class = "text-muted fs-xs fw-semibold"),
+      uiOutput("compare_outcome_toggle_ui")
+    ),
+
     fluidRow(
       col_6(
         div(
@@ -20,7 +27,7 @@ ui_compare <- function() {
       col_6(
         div(
           class = "d-flex align-items-center gap-2 mb-2",
-          span(class = "badge", style = "background:#D97706;", "SPORE"),
+          span(class = "badge", style = "background:#C9A227;", "SPORE"),
           span(uiOutput("compare_spore_count"), class = "text-muted fs-xs")
         ),
         uiOutput("compare_spore_grid")

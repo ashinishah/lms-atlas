@@ -8,6 +8,28 @@ ui_inspect <- function() {
     # ── Left info panel ──────────────────────────────────────────────────────
     div(
       class = "inspect-info-panel",
+
+      # Slide navigation bar
+      div(
+        class = "inspect-nav-bar",
+        tags$button(
+          class   = "inspect-nav-btn",
+          title   = "Previous slide",
+          onclick = "Shiny.setInputValue('inspect_prev_click', Date.now(), {priority:'event'});",
+          HTML("&#8592;")
+        ),
+        div(class = "inspect-nav-label", uiOutput("inspect_nav_label")),
+        tags$button(
+          class   = "inspect-nav-btn",
+          title   = "Next slide",
+          onclick = "Shiny.setInputValue('inspect_next_click', Date.now(), {priority:'event'});",
+          HTML("&#8594;")
+        )
+      ),
+
+      # Slide picker dropdown
+      div(class = "px-2 pt-1 pb-2", uiOutput("inspect_slide_picker")),
+
       div(class = "inspect-panel-divider"),
       div(
         class = "inspect-panel-section inspect-slide-info",
@@ -29,7 +51,10 @@ ui_inspect <- function() {
       class = "wsi-canvas",
       uiOutput("wsi_image_ui"),
       uiOutput("wsi_marker_svg"),
-      div(class = "minimap", uiOutput("minimap_ui")),
+      div(class = "minimap",
+          uiOutput("minimap_ui"),
+          div(class = "viewport-rect", id = "minimap_rect")
+      ),
       div(
         class = "zoom-controls",
         tags$button(class = "btn", onclick = "lmsZoomIn('wsi_canvas')",    title = "Zoom in",    "+"),
