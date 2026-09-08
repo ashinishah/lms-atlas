@@ -4,10 +4,12 @@ library(shinyjs)
 
 # All R/ files are auto-sourced by Shiny — no source() calls needed.
 
-# Expose image directories to the browser
-addResourcePath("lms-images",    image_base())     # thumbnails
-addResourcePath("lms-heatmaps",  heatmaps_base())  # tissue50_mask50 heatmaps
-addResourcePath("lms-patches",   patches_base())   # tissue50_mask50 patches
+# Expose image directories to the browser (local dev only — S3 uses absolute URLs)
+if (!startsWith(image_base(), "http")) {
+  addResourcePath("lms-images",   file.path(image_base(), "wsis"))  # thumbnails
+  addResourcePath("lms-heatmaps", heatmaps_base())                  # dense heatmaps
+  addResourcePath("lms-patches",  patches_base())                   # patches
+}
 
 # ── Sidebar nav button ─────────────────────────────────────────────────────────
 nav_btn <- function(id, label, fa) {

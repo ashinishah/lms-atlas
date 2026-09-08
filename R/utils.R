@@ -7,35 +7,51 @@ col_4  <- function(...) column(4,  ...)
 col_6  <- function(...) column(6,  ...)
 col_12 <- function(...) column(12, ...)
 
-# ── Image base path (thumbnails + heatmaps) ────────────────────────────────────
+# ── Image / data base path ────────────────────────────────────────────────────
+# LMS_IMAGE_BASE controls everything:
+#   Local dev: path to Globus folder (tcga_sarc root)
+#   Connect:   https://... S3 bucket URL
 image_base <- function() {
-  Sys.getenv("LMS_IMAGE_BASE", unset = "C:/data/lms-images")
-}
-
-# ── Globus/source data path ────────────────────────────────────────────────────
-globus_base <- function() {
-  Sys.getenv("LMS_GLOBUS_BASE",
+  Sys.getenv("LMS_IMAGE_BASE",
     unset = "C:/Users/ashin/OneDrive/Documents/Globus/shiny/tcga_sarc")
 }
 
-tissue_base        <- function() file.path(globus_base(), "tissue50_mask50")
-heatmaps_base      <- function() file.path(tissue_base(), "dense heatmaps")
-patches_base       <- function() file.path(tissue_base(), "patches")
+# Globus fallback — defaults to image_base() so one env var covers both locally
+globus_base <- function() {
+  Sys.getenv("LMS_GLOBUS_BASE", unset = image_base())
+}
+
+tissue_base         <- function() file.path(globus_base(), "tissue50_mask50")
+heatmaps_base       <- function() file.path(tissue_base(), "dense heatmaps")
+patches_base        <- function() file.path(tissue_base(), "patches")
 patch_metadata_path <- function() file.path(tissue_base(), "patch_metadata.csv")
 
 # ── Image URL helpers ──────────────────────────────────────────────────────────
+# When LMS_IMAGE_BASE is an https:// URL (e.g. S3), return absolute URLs.
+# When it's a local path, return Shiny resource-path URLs (served via addResourcePath).
+
+.image_base_is_url <- function() startsWith(image_base(), "http")
 
 thumbnail_url <- function(slide_id) {
-  paste0("lms-images/thumbnails/", slide_id, ".png")
+  if (.image_base_is_url())
+    paste0(image_base(), "/thumbnails/", slide_id, ".png")
+  else
+    paste0("lms-images/", slide_id, ".png")  # served from wsis/ via addResourcePath
 }
 
 heatmap_url <- function(slide_id) {
-  paste0("lms-heatmaps/", slide_id, "_true_consensus.png")
+  if (.image_base_is_url())
+    paste0(image_base(), "/heatmaps/", slide_id, "_true_consensus.png")
+  else
+    paste0("lms-heatmaps/", slide_id, "_true_consensus.png")
 }
 
 # patch_id is the full {slide_id}_{x}_{y} string
 patch_url <- function(slide_id, patch_id) {
-  paste0("lms-patches/", slide_id, "/", patch_id, ".png")
+  if (.image_base_is_url())
+    paste0(image_base(), "/patches/", slide_id, "/", patch_id, ".png")
+  else
+    paste0("lms-patches/", slide_id, "/", patch_id, ".png")
 }
 
 # ── Outcome badge ──────────────────────────────────────────────────────────────
