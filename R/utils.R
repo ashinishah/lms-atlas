@@ -24,7 +24,7 @@ globus_base <- function() {
 tissue_base         <- function() file.path(globus_base(), "tissue50_mask50")
 heatmaps_base       <- function() file.path(tissue_base(), "dense heatmaps")
 patches_base        <- function() file.path(tissue_base(), "patches")
-patch_metadata_path <- function() file.path(tissue_base(), "patch_metadata.csv")
+patch_metadata_path <- function() "data/patch_metadata.csv"
 
 # ── Image URL helpers ──────────────────────────────────────────────────────────
 # When LMS_IMAGE_BASE is an https:// URL (e.g. S3), return absolute URLs.
