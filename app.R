@@ -6,9 +6,20 @@ library(shinyjs)
 
 # Expose image directories to the browser (local dev only — S3 uses absolute URLs)
 if (!startsWith(image_base(), "http")) {
-  addResourcePath("lms-images",   file.path(image_base(), "wsis"))  # thumbnails
-  addResourcePath("lms-heatmaps", heatmaps_base())                  # dense heatmaps
-  addResourcePath("lms-patches",  patches_base())                   # patches
+  local_dirs <- c(
+    "lms-images"   = file.path(image_base(), "wsis"),  # thumbnails
+    "lms-heatmaps" = heatmaps_base(),                  # dense heatmaps
+    "lms-patches"  = patches_base()                    # patches
+  )
+  for (prefix in names(local_dirs)) {
+    if (dir.exists(local_dirs[[prefix]])) {
+      addResourcePath(prefix, local_dirs[[prefix]])
+    } else {
+      # Don't crash on startup (e.g. LMS_IMAGE_BASE unset on Connect) — images just won't load
+      warning("Image folder not found, skipping '", prefix, "': ", local_dirs[[prefix]],
+              "\nSet LMS_IMAGE_BASE to the S3 bucket URL on Connect Cloud.", call. = FALSE)
+    }
+  }
 }
 
 # ── Sidebar nav button ─────────────────────────────────────────────────────────
